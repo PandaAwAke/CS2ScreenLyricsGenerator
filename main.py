@@ -27,8 +27,8 @@ Y_PADDING = 20              # 英文中文 竖方向间隔
 IMAGE_PREFIX = "lyric"      # 生成的文件名前缀（vtex、particle）
 LYRICS_PARTICLE_PREFIX = "particle_enlightenment"   # 粒子 entity 的前缀
 RELAY_ENTITY_NAME = "lyrics_relay_enlightenment"    # 粒子 relay 的前缀
-STOP_INTERVAL = 0.5         # 上一句到下一句之间的默认间隔（上一句提前多久停止）
-MAX_DURATION = 5.0          # 最长显示多久
+STOP_INTERVAL = 0.5         # 上一句到下一句之间的默认间隔（播放下一句之前，上一句提前多久停止）
+MAX_DURATION = 5.0          # 每句歌词最长显示多久
 
 
 # ======================================================================
