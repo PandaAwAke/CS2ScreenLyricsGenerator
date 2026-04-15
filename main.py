@@ -5,26 +5,30 @@ from PIL import Image, ImageDraw, ImageFont
 
 # ====================== 【全局统一配置：只改这里】 ======================
 # 歌词文件配置
-LRC_FILE = "lyrics/ENLIGHTENMENT.lrc"  # LRC歌词文件路径
+LRC_FILE = "lyrics/ENLIGHTENMENT.lrc"
 
-# 路径配置
-OUTPUT_TGA_DIR = "lyrics_tga/ENLIGHTENMENT"  # TGA生成输出目录
-TEXTURE_DIR = "materials/abyss/music/enlightenment"  # vtex存放目录（TGA会被复制到这里）
-PARTICLE_DIR = "particles/abyss/music/enlightenment"  # vpcf + fix 存放目录
-TEMPLATE_DIR = "templates"  # 模板文件夹
+# 路径配置（已完全合一）
+TEXTURE_DIR = "materials/abyss/music/enlightenment"
+PARTICLE_DIR = "particles/abyss/music/enlightenment"
+TEMPLATE_DIR = "templates"
+FINAL_OUTPUT_DIR = "output"
 
 # 字体与图片配置
-EN_FONT_PATH = "fonts/AkzidenzGrotesk-MediumItalic.otf"  # 英文字体路径
-CN_FONT_PATH = "fonts/SourceHanSansCN-Medium.otf"  # 中文字体路径
-EN_DEFAULT_SIZE = 80  # 英文默认大小
-CN_DEFAULT_SIZE = 48  # 中文默认大小
-IMAGE_SIZE_WIDTH = 1024  # 画布宽度
-IMAGE_SIZE_HEIGHT = 512  # 画布高度
-MAX_WIDTH_RATIO = 0.85  # 文字最大占宽度比例
-Y_PADDING = 24  # 中英文竖向间隔
+EN_FONT_PATH = "fonts/AkzidenzGrotesk-MediumItalic.otf"
+CN_FONT_PATH = "fonts/SourceHanSansCN-Medium.otf"
+EN_DEFAULT_SIZE = 80
+CN_DEFAULT_SIZE = 48
+IMAGE_SIZE_WIDTH = 1024
+IMAGE_SIZE_HEIGHT = 512
+MAX_WIDTH_RATIO = 0.85
+Y_PADDING = 24
 
-# 文件名配置
-IMAGE_PREFIX = "lyric"  # 文件名前缀 lyric_000
+# 粒子与触发器命名配置
+IMAGE_PREFIX = "lyric"
+LYRICS_PARTICLE_PREFIX = "particle_enlightenment"
+RELAY_ENTITY_NAME = "lyrics_relay_enlightenment"
+STOP_INTERVAL = 0.5
+MAX_DURATION = 5.0
 
 
 # ======================================================================
@@ -90,82 +94,29 @@ def make_single_image(en_text, cn_text, save_path):
 
 
 def batch_build_tga():
-    """批量生成TGA图片"""
-    os.makedirs(OUTPUT_TGA_DIR, exist_ok=True)
+    os.makedirs(TEXTURE_DIR, exist_ok=True)
     with open(LRC_FILE, 'r', encoding='utf-8') as f:
         content = f.read()
     lyrics = parse_lrc(content)
-    valid_count = 0
+    valid = 0
     for idx, (time_tag, lines) in enumerate(lyrics):
-        if len(lines) >= 2:
+        if len(lines)>=2:
             en = lines[0]
             cn = lines[1]
-            out = f"{OUTPUT_TGA_DIR}/{IMAGE_PREFIX}_{idx:03d}.tga"
+            out = f"{TEXTURE_DIR}/{IMAGE_PREFIX}_{idx:03d}.tga"
             make_single_image(en, cn, out)
-            valid_count += 1
-    print(f"✅ TGA图片生成完成！共 {valid_count} 张")
-    return valid_count
+            valid +=1
+    print(f"✅ TGA 生成完成：{valid} 张")
+    return valid
 
 
-# -------------------------- VTEX/VPCF生成相关函数 --------------------------
-def get_lyric_count(lrc_path):
-    """统计有多少句歌词（中英一对算一句）"""
-    count = 0
-    try:
-        with open(lrc_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-
-        time_map = {}
-        for line in lines:
-            line = line.strip()
-            if line.startswith("[") and "]" in line:
-                time_part = line.split("]")[0] + "]"
-                if time_part not in time_map:
-                    time_map[time_part] = 0
-                time_map[time_part] += 1
-
-        for t, cnt in time_map.items():
-            if cnt >= 2:
-                count += 1
-    except Exception as e:
-        print(f"⚠️ 读取歌词失败：{e}，默认按TGA文件数量生成")
-        tga_count = len([f for f in os.listdir(OUTPUT_TGA_DIR) if f.lower().endswith(".tga")])
-        return tga_count
-    return count
-
-
+# -------------------------- VTEX / VPCF 生成 --------------------------
 def copy_all_tga():
-    """预处理：把 TGA_DIR 里所有 .tga 复制到 TEXTURE_DIR"""
-    print(f"🔁 预处理：开始复制 TGA 从 {OUTPUT_TGA_DIR} → {TEXTURE_DIR}")
-
-    if not os.path.exists(OUTPUT_TGA_DIR):
-        print(f"❌ 错误：TGA 目录 {OUTPUT_TGA_DIR} 不存在！")
-        return False
-
-    os.makedirs(TEXTURE_DIR, exist_ok=True)
-    copied = 0
-
-    for filename in os.listdir(OUTPUT_TGA_DIR):
-        if filename.lower().endswith(".tga"):
-            src = os.path.join(OUTPUT_TGA_DIR, filename)
-            dst = os.path.join(TEXTURE_DIR, filename)
-            shutil.copy2(src, dst)
-            copied += 1
-
-    print(f"✅ TGA 复制完成：共 {copied} 张")
+    print(f"🔁 TGA 已直接生成在目标目录，无需复制")
     return True
 
-
 def generate_vtex_vpcf_files():
-    """生成VTEX和VPCF相关文件"""
-    # 第一步：复制所有TGA
-    if not copy_all_tga():
-        return
-
-    # 创建目录
     os.makedirs(PARTICLE_DIR, exist_ok=True)
-
-    # 读取模板
     try:
         with open(f"{TEMPLATE_DIR}/example.vtex", "r", encoding="utf-8") as f:
             tpl_vtex = f.read()
@@ -177,56 +128,154 @@ def generate_vtex_vpcf_files():
         print(f"❌ 模板缺失：{e}")
         return
 
-    # 获取歌词数量
-    total = get_lyric_count(LRC_FILE)
-    print(f"✅ 检测到 {total} 句歌词，开始生成粒子文件...")
+    with open(LRC_FILE, 'r', encoding='utf-8') as f:
+        lyrics = parse_lrc(f.read())
+    total = sum(1 for _, lines in lyrics if len(lines)>=2)
 
-    # 批量生成
     for i in range(total):
         idx = f"{i:03d}"
         base = f"{IMAGE_PREFIX}_{idx}"
 
-        # ========== 1. 生成 VTEX ==========
+        # VTEX
         tga_path = f"{TEXTURE_DIR}/{base}.tga"
         vtex_content = tpl_vtex.replace("###", tga_path)
-        vtex_path = os.path.join(TEXTURE_DIR, f"{base}.vtex")
-        with open(vtex_path, "w", encoding="utf-8") as f:
+        with open(os.path.join(TEXTURE_DIR, f"{base}.vtex"), "w", encoding="utf-8") as f:
             f.write(vtex_content)
 
-        # ========== 2. 生成 VPCF ==========
+        # VPCF
         vtex_resource = f"{TEXTURE_DIR}/{base}.vtex"
         vpcf_content = tpl_vpcf.replace("###", vtex_resource)
-        vpcf_path = os.path.join(PARTICLE_DIR, f"{base}.vpcf")
-        with open(vpcf_path, "w", encoding="utf-8") as f:
+        with open(os.path.join(PARTICLE_DIR, f"{base}.vpcf"), "w", encoding="utf-8") as f:
             f.write(vpcf_content)
 
-        # ========== 3. 生成 VPCF-FIX ==========
+        # FIX VPCF
         vpcf_resource = f"{PARTICLE_DIR}/{base}.vpcf"
-        vpcf_fix_content = tpl_vpcf_fix.replace("###", vpcf_resource)
-        vpcf_fix_path = os.path.join(PARTICLE_DIR, f"{base}_fix.vpcf")
-        with open(vpcf_fix_path, "w", encoding="utf-8") as f:
-            f.write(vpcf_fix_content)
+        fix_content = tpl_vpcf_fix.replace("###", vpcf_resource)
+        with open(os.path.join(PARTICLE_DIR, f"{base}_fix.vpcf"), "w", encoding="utf-8") as f:
+            f.write(fix_content)
 
-        print(f"📄 已生成：{base}")
+        print(f"📄 生成：{base}")
 
-    print("\n🎉 【VTEX/VPCF文件生成完成】")
-    print(f"📁 TGA 已复制 → {TEXTURE_DIR}")
-    print(f"📁 VTEX 文件 → {TEXTURE_DIR}")
-    print(f"📁 VPCF 粒子 → {PARTICLE_DIR}")
-    print(f"📁 VPCF_FIX  → {PARTICLE_DIR}")
+    print("🎉 VTEX + VPCF 生成完毕")
+
+# -------------------------- TRIGGER 生成（新功能） --------------------------
+def generate_trigger_file():
+    with open(LRC_FILE, 'r', encoding='utf-8') as f:
+        lyrics = parse_lrc(f.read())
+
+    valid_entries = []
+    for time_tag, lines in lyrics:
+        if len(lines) >= 2:
+            valid_entries.append((parse_time(time_tag), lines))
+    if not valid_entries:
+        print("❌ 无有效歌词")
+        return
+
+    t0 = valid_entries[0][0]
+    rel_times = [(round(t - t0, 1), idx) for idx, (t, _) in enumerate(valid_entries)]
+    connections = []
+
+    for idx in range(len(rel_times)):
+        t_start, i = rel_times[idx]
+        target = f"{LYRICS_PARTICLE_PREFIX}_{i:03d}"
+
+        # Start
+        conn_start = f"""
+		{{
+			sourceEntity = "{RELAY_ENTITY_NAME}"
+			output = "OnTrigger"
+			targetEntity = "{target}"
+			input = "Start"
+			param = ""
+			ioTargetType = "ENTITY_IO_TARGET_ENTITYNAME_OR_CLASSNAME"
+			delay = {t_start:.1f}
+			timesToFire = -1
+			relayConnection = false
+			fromGlobalRelay = false
+			m_paramMap = null
+		}}"""
+
+        # Stop 逻辑
+        if idx < len(rel_times) - 1:
+            t_next = rel_times[idx+1][0]
+            t_stop = t_next - STOP_INTERVAL
+        else:
+            t_stop = t_start + MAX_DURATION
+
+        duration = t_stop - t_start
+        if duration > MAX_DURATION:
+            t_stop = t_start + MAX_DURATION
+        t_stop = round(t_stop, 1)
+
+        conn_stop = f"""
+		{{
+			sourceEntity = "{RELAY_ENTITY_NAME}"
+			output = "OnTrigger"
+			targetEntity = "{target}"
+			input = "StopPlayEndCap"
+			param = ""
+			ioTargetType = "ENTITY_IO_TARGET_ENTITYNAME_OR_CLASSNAME"
+			delay = {t_stop:.1f}
+			timesToFire = -1
+			relayConnection = false
+			fromGlobalRelay = false
+			m_paramMap = null
+		}}"""
+
+        connections.append(conn_start.strip())
+        connections.append(conn_stop.strip())
+
+    # 拼接输出
+    header = '''<!-- kv3 encoding:text:version{e21c7f3c-8a33-41c5-9977-a76d3a32aa0d} format:generic:version{7412167c-06e9-4698-aff2-e63eb59037e7} -->
+{
+	connections =\n	['''
+    footer = "\n\t]\n}"
+
+    final = header + ",\n".join(connections) + footer
+    out_path = f"{RELAY_ENTITY_NAME}-trigger.txt"
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(final)
+    print(f"✅ TRIGGER 文件已生成：{out_path}")
+    return out_path
 
 
-# -------------------------- 主执行函数 --------------------------
+# -------------------------- 最终打包：移动全部内容到 output --------------------------
+def move_to_final_output(trigger_file):
+    print(f"\n📦 开始打包所有内容到：{FINAL_OUTPUT_DIR}")
+
+    # 清空并重建输出目录
+    if os.path.exists(FINAL_OUTPUT_DIR):
+        shutil.rmtree(FINAL_OUTPUT_DIR)
+    os.makedirs(FINAL_OUTPUT_DIR)
+
+    # 移动目录
+    if os.path.exists("materials"):
+        shutil.move("materials", os.path.join(FINAL_OUTPUT_DIR, "materials"))
+    if os.path.exists("particles"):
+        shutil.move("particles", os.path.join(FINAL_OUTPUT_DIR, "particles"))
+
+    # 移动 trigger.txt
+    if os.path.exists(trigger_file):
+        shutil.move(trigger_file, os.path.join(FINAL_OUTPUT_DIR, trigger_file))
+
+    print(f"✅ 所有文件已打包到：{FINAL_OUTPUT_DIR}")
+
+
+# -------------------------- 主执行 --------------------------
 def main():
-    """主流程：先生成TGA，再生成VTEX/VPCF"""
-    print("===== 开始执行TGA图片生成 =====")
+    print("===== 1. 生成歌词TGA =====")
     batch_build_tga()
 
-    print("\n===== 开始执行VTEX/VPCF文件生成 =====")
+    print("\n===== 2. 生成VTEX + VPCF =====")
     generate_vtex_vpcf_files()
 
-    print("\n===== 所有任务执行完成 =====")
+    print("\n===== 3. 生成TRIGGER =====")
+    trigger_file = generate_trigger_file()
 
+    print("\n===== 4. 打包所有内容到 output 文件夹 =====")
+    move_to_final_output(trigger_file)
+
+    print("\n🎉 全部任务完成！")
 
 if __name__ == "__main__":
     main()

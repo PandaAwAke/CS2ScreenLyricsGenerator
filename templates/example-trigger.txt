@@ -1,0 +1,32 @@
+<!-- kv3 encoding:text:version{e21c7f3c-8a33-41c5-9977-a76d3a32aa0d} format:generic:version{7412167c-06e9-4698-aff2-e63eb59037e7} -->
+{
+	connections =
+	[
+		{
+			sourceEntity = "your_music_relay"
+			output = "OnTrigger"
+			targetEntity = "music_000"
+			input = "Start"
+			param = ""
+			ioTargetType = "ENTITY_IO_TARGET_ENTITYNAME_OR_CLASSNAME"
+			delay = ###
+			timesToFire = -1
+			relayConnection = false
+			fromGlobalRelay = false
+			m_paramMap = null
+		},
+		{
+			sourceEntity = "your_music_relay"
+			output = "OnTrigger"
+			targetEntity = "music_000"
+			input = "StopPlayEndCap"
+			param = ""
+			ioTargetType = "ENTITY_IO_TARGET_ENTITYNAME_OR_CLASSNAME"
+			delay = ###
+			timesToFire = -1
+			relayConnection = false
+			fromGlobalRelay = false
+			m_paramMap = null
+		},
+	]
+}
