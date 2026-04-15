@@ -8,26 +8,28 @@ from PIL import Image, ImageDraw, ImageFont
 LRC_FILE = "lyrics/ENLIGHTENMENT.lrc"
 
 # 路径配置（已完全合一）
-TEXTURE_DIR = "materials/abyss/music/enlightenment"
-PARTICLE_DIR = "particles/abyss/music/enlightenment"
-TEMPLATE_DIR = "templates"
-FINAL_OUTPUT_DIR = "output"
+TEXTURE_DIR = "materials/abyss/music/enlightenment"     # 对应 content 文件夹
+PARTICLE_DIR = "particles/abyss/music/enlightenment"    # 对应 content 文件夹
+TEMPLATE_DIR = "templates"      # 无需修改
+FINAL_OUTPUT_DIR = "output"     # 输出到的文件夹（当前目录）
 
 # 字体与图片配置
-EN_FONT_PATH = "fonts/AkzidenzGrotesk-MediumItalic.otf"
-CN_FONT_PATH = "fonts/SourceHanSansCN-Medium.otf"
-EN_DEFAULT_SIZE = 80        # 英文字体默认大小 px
-CN_DEFAULT_SIZE = 48        # 中文字体默认大小 px
+EN_FONT_PATH = "fonts/AkzidenzGrotesk-MediumItalic.otf"     # 英文字体
+CN_FONT_PATH = "fonts/AaGuDianKeBenSongYouMoBan-2.ttf"           # 中文字体
+EN_DEFAULT_SIZE = 48        # 英文字体默认大小 px
+CN_DEFAULT_SIZE = 40        # 中文字体默认大小 px
 IMAGE_SIZE_WIDTH = 1024
 IMAGE_SIZE_HEIGHT = 512
 MAX_WIDTH_RATIO = 0.85      # 最宽可以扩充到多宽比例
-Y_PADDING = 20              # 英文中文 竖方向间隔
+Y_PADDING = 12              # 英文中文 竖方向间隔
+ENABLE_CHINESE_SCALE_WITH_EN = True    # 开启中文随英文缩放
+CN_SCALE_MULTIPLIER = 1              # 中文缩放 = 英文比例 × 这个值
 
 # 粒子与触发器命名配置
 IMAGE_PREFIX = "lyric"      # 生成的文件名前缀（vtex、particle）
 LYRICS_PARTICLE_PREFIX = "particle_enlightenment"   # 粒子 entity 的前缀
 RELAY_ENTITY_NAME = "lyrics_relay_enlightenment"    # 粒子 relay 的前缀
-STOP_INTERVAL = 0.5         # 上一句到下一句之间的默认间隔（播放下一句之前，上一句提前多久停止）
+STOP_INTERVAL = 1         # 上一句到下一句之间的默认间隔（播放下一句之前，上一句提前多久停止）
 MAX_DURATION = 5.0          # 每句歌词最长显示多久
 
 
@@ -55,42 +57,71 @@ def parse_time(time_str):
 
 
 def make_single_image(en_text, cn_text, save_path):
-    img = Image.new('RGBA', (IMAGE_SIZE_WIDTH, IMAGE_SIZE_HEIGHT), (0, 0, 0, 0))
+    img = Image.new('RGBA', (IMAGE_SIZE_WIDTH, IMAGE_SIZE_HEIGHT), (0,0,0,0))
     draw = ImageDraw.Draw(img)
     max_w = IMAGE_SIZE_WIDTH * MAX_WIDTH_RATIO
 
-    # 加载字体
+    # 基础字体
     try:
-        en_font = ImageFont.truetype(EN_FONT_PATH, EN_DEFAULT_SIZE)
-        cn_font = ImageFont.truetype(CN_FONT_PATH, CN_DEFAULT_SIZE)
+        en_font_base = ImageFont.truetype(EN_FONT_PATH, EN_DEFAULT_SIZE)
+        cn_font_base = ImageFont.truetype(CN_FONT_PATH, CN_DEFAULT_SIZE)
     except:
-        en_font = ImageFont.load_default(size=EN_DEFAULT_SIZE)
-        cn_font = ImageFont.load_default(size=CN_DEFAULT_SIZE)
+        en_font_base = ImageFont.load_default(size=EN_DEFAULT_SIZE)
+        cn_font_base = ImageFont.load_default(size=CN_DEFAULT_SIZE)
 
-    # 英文自适应
-    e_w = draw.textbbox((0, 0), en_text, font=en_font)[2]
+    # -------------------------- 英文自动缩放 --------------------------
+    e_bbox = draw.textbbox((0, 0), en_text, font=en_font_base)
+    e_w = e_bbox[2] - e_bbox[0]
+    en_scale = 1.0
     if e_w > max_w:
-        scale = max_w / e_w
-        en_font = ImageFont.truetype(EN_FONT_PATH, int(EN_DEFAULT_SIZE * scale))
+        en_scale = max_w / e_w
 
-    # 中文自适应
-    c_w = draw.textbbox((0, 0), cn_text, font=cn_font)[2]
-    if c_w > max_w:
-        scale = max_w / c_w
-        cn_font = ImageFont.truetype(CN_FONT_PATH, int(CN_DEFAULT_SIZE * scale))
+    en_final_size = max(8, int(EN_DEFAULT_SIZE * en_scale))
+    en_fnt = ImageFont.truetype(EN_FONT_PATH, en_final_size)
+
+    # -------------------------- 中文随英文联动缩放（新增功能） --------------------------
+    if ENABLE_CHINESE_SCALE_WITH_EN:
+        cn_scale = en_scale * CN_SCALE_MULTIPLIER
+    else:
+        # 不联动 → 中文自己独立缩放
+        c_bbox = draw.textbbox((0, 0), cn_text, font=cn_font_base)
+        c_w = c_bbox[2] - c_bbox[0]
+        cn_scale = 1.0
+        if c_w > max_w:
+            cn_scale = max_w / c_w
+
+    cn_final_size = max(6, int(CN_DEFAULT_SIZE * cn_scale))
+    cn_fnt = ImageFont.truetype(CN_FONT_PATH, cn_final_size)
 
     # 居中排版
-    e_b = draw.textbbox((0, 0), en_text, font=en_font)
-    c_b = draw.textbbox((0, 0), cn_text, font=cn_font)
-    e_x = (IMAGE_SIZE_WIDTH - (e_b[2] - e_b[0])) // 2
-    c_x = (IMAGE_SIZE_WIDTH - (c_b[2] - c_b[0])) // 2
+    e_b = draw.textbbox((0, 0), en_text, font=en_fnt)
+    c_b = draw.textbbox((0, 0), cn_text, font=cn_fnt)
+    e_x = (IMAGE_SIZE_WIDTH - (e_b[2]-e_b[0])) // 2
+    c_x = (IMAGE_SIZE_WIDTH - (c_b[2]-c_b[0])) // 2
     mid_y = IMAGE_SIZE_HEIGHT // 2
-    e_y = mid_y - (e_b[3] - e_b[1]) - Y_PADDING
+    e_y = mid_y - (e_b[3]-e_b[1]) - Y_PADDING
     c_y = mid_y + Y_PADDING
 
-    draw.text((e_x, e_y), en_text, font=en_font, fill=(255, 255, 255, 255))
-    draw.text((c_x, c_y), cn_text, font=cn_font, fill=(255, 255, 255, 255))
+    draw.text((e_x, e_y), en_text, font=en_fnt, fill=(255,255,255,255))
+    draw.text((c_x, c_y), cn_text, font=cn_fnt, fill=(255,255,255,255))
     img.save(save_path, format='TGA')
+
+
+def batch_build_tga():
+    os.makedirs(TEXTURE_DIR, exist_ok=True)
+    with open(LRC_FILE, 'r', encoding='utf-8') as f:
+        content = f.read()
+    lyrics = parse_lrc(content)
+    valid = 0
+    for idx, (time_tag, lines) in enumerate(lyrics):
+        if len(lines)>=2:
+            en = lines[0]
+            cn = lines[1]
+            out = f"{TEXTURE_DIR}/{IMAGE_PREFIX}_{idx:03d}.tga"
+            make_single_image(en, cn, out)
+            valid +=1
+    print(f"✅ TGA 生成完成：{valid} 张")
+    return valid
 
 
 def batch_build_tga():
@@ -212,7 +243,7 @@ def generate_trigger_file():
 			sourceEntity = "{RELAY_ENTITY_NAME}"
 			output = "OnTrigger"
 			targetEntity = "{target}"
-			input = "StopPlayEndCap"
+			input = "Stop"
 			param = ""
 			ioTargetType = "ENTITY_IO_TARGET_ENTITYNAME_OR_CLASSNAME"
 			delay = {t_stop:.1f}
