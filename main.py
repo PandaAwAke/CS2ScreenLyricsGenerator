@@ -16,19 +16,19 @@ FINAL_OUTPUT_DIR = "output"
 # 字体与图片配置
 EN_FONT_PATH = "fonts/AkzidenzGrotesk-MediumItalic.otf"
 CN_FONT_PATH = "fonts/SourceHanSansCN-Medium.otf"
-EN_DEFAULT_SIZE = 80
-CN_DEFAULT_SIZE = 48
+EN_DEFAULT_SIZE = 80        # 英文字体默认大小 px
+CN_DEFAULT_SIZE = 48        # 中文字体默认大小 px
 IMAGE_SIZE_WIDTH = 1024
 IMAGE_SIZE_HEIGHT = 512
-MAX_WIDTH_RATIO = 0.85
-Y_PADDING = 24
+MAX_WIDTH_RATIO = 0.85      # 最宽可以扩充到多宽比例
+Y_PADDING = 20              # 英文中文 竖方向间隔
 
 # 粒子与触发器命名配置
-IMAGE_PREFIX = "lyric"
-LYRICS_PARTICLE_PREFIX = "particle_enlightenment"
-RELAY_ENTITY_NAME = "lyrics_relay_enlightenment"
-STOP_INTERVAL = 0.5
-MAX_DURATION = 5.0
+IMAGE_PREFIX = "lyric"      # 生成的文件名前缀（vtex、particle）
+LYRICS_PARTICLE_PREFIX = "particle_enlightenment"   # 粒子 entity 的前缀
+RELAY_ENTITY_NAME = "lyrics_relay_enlightenment"    # 粒子 relay 的前缀
+STOP_INTERVAL = 0.5         # 上一句到下一句之间的默认间隔（上一句提前多久停止）
+MAX_DURATION = 5.0          # 最长显示多久
 
 
 # ======================================================================
